@@ -21,10 +21,10 @@ public partial class JsonResultBuilderGenerator
             CreateResultInfoName(
                 resultNamedType.ImplementedBy.First().RuntimeType.Name);
 
-        // protected override IOperationResultDataInfo BuildData(JsonElement dataProp)
+        // public override IOperationResultDataInfo BuildData(JsonElement dataProp)
         var buildDataMethod = classBuilder
             .AddMethod()
-            .SetProtected()
+            .SetPublic()
             .SetOverride()
             .SetName("BuildData")
             .SetReturnType(TypeNames.IOperationResultDataInfo)

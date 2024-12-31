@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 
@@ -12,6 +13,7 @@ public abstract class UseQuery<TResult> : ComponentBase, IDisposable where TResu
     private TResult? _result;
     private IReadOnlyList<IClientError>? _errors;
     private bool _disposed;
+    private readonly CancellationTokenSource _cts = new();
 
     [Parameter] public ExecutionStrategy? Strategy { get; set; }
 
@@ -20,6 +22,16 @@ public abstract class UseQuery<TResult> : ComponentBase, IDisposable where TResu
     [Parameter] public RenderFragment<IReadOnlyList<IClientError>>? ErrorContent { get; set; }
 
     [Parameter] public RenderFragment? LoadingContent { get; set; }
+
+    [Parameter] public bool Hydrate { get; set; }
+    
+    [Inject]
+    protected IHydrateService HydrateService { get; set; } = default!;
+
+    [Inject]
+    protected IOperationResultBuilder<JsonDocument, TResult> ResultBuilder { get; set; } = default!;
+
+    protected CancellationToken CancellationToken => _cts.Token;
 
     protected void Subscribe(IObservable<IOperationResult<TResult>> observable)
     {
@@ -69,6 +81,8 @@ public abstract class UseQuery<TResult> : ComponentBase, IDisposable where TResu
         {
             if (disposing)
             {
+                _cts.Cancel();
+                _cts.Dispose();
                 _subscription?.Dispose();
             }
 

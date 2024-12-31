@@ -99,5 +99,5 @@ public abstract class OperationResultBuilder<TResultData>
             response.ContextData);
     }
 
-    protected abstract IOperationResultDataInfo BuildData(JsonElement obj);
+    public abstract IOperationResultDataInfo BuildData(JsonElement obj);
 }
