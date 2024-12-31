@@ -341,6 +341,7 @@ public class OperationServiceGenerator : ClassBaseGenerator<OperationDescriptor>
         var method = MethodBuilder
             .New()
             .SetName(_createRequest)
+            .SetPublic()
             .SetReturnType(TypeNames.OperationRequest);
 
         var createRequestWithVariables = MethodCallBuilder

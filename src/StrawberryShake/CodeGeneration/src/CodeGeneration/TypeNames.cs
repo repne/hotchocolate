@@ -240,6 +240,12 @@ public static class TypeNames
         GlobalDependencyInjectionNamespace +
         "Extensions.ServiceCollectionDescriptorExtensions.";
 
+    public const string IHydrateService =
+        StrawberryShakeNamespace + "Razor." + nameof(IHydrateService);
+    
+    public const string HydrateService
+        = StrawberryShakeNamespace + "Razor." + nameof(HydrateService);
+
     public const string UseQuery = StrawberryShakeNamespace + "Razor." + nameof(UseQuery);
 
     public const string UseSubscription =

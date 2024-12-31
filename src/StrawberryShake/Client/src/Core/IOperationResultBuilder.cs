@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace StrawberryShake;
 
 /// <summary>
@@ -25,4 +27,6 @@ public interface IOperationResultBuilder<TResponseBody, TResultData>
     /// </returns>
     IOperationResult<TResultData> Build(
         Response<TResponseBody> response);
+    
+    IOperationResultDataInfo BuildData(JsonElement obj);
 }

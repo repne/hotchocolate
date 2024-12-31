@@ -269,6 +269,16 @@ public class DependencyInjectionGenerator : CodeGenerator<DependencyInjectionDes
                     builder.AddCode(ForwardSingletonToClientServiceProvider(
                         operation.RuntimeType.ToString(),
                         isScoped)))
+            .ForEach(
+                descriptor.Operations
+                    .OfType<QueryOperationDescriptor>()
+                    .Select(x => x.ResultTypeReference)
+                    .OfType<InterfaceTypeDescriptor>(),
+                (builder, resultTypeReference) =>
+                    builder.AddCode(ForwardSingletonToClientServiceProvider(
+                        IOperationResultBuilder
+                            .WithGeneric(JsonDocument, resultTypeReference.RuntimeType.ToString()),
+                        isScoped)))
             .AddEmptyLine()
             .AddCode(ForwardSingletonToClientServiceProvider(
                 descriptor.ClientDescriptor.RuntimeType.ToString(),
@@ -276,6 +286,12 @@ public class DependencyInjectionGenerator : CodeGenerator<DependencyInjectionDes
             .AddCode(ForwardSingletonToClientServiceProvider(
                 descriptor.ClientDescriptor.InterfaceType.ToString(),
                 isScoped))
+            .AddEmptyLine()
+            .AddMethodCall(x => x
+                .SetMethodName(AddScoped)
+                .AddArgument(_services)
+                .AddGeneric(IHydrateService)
+                .AddGeneric(HydrateService))
             .AddEmptyLine()
             .AddMethodCall(x => x
                 .SetReturn()
@@ -579,7 +595,7 @@ public class DependencyInjectionGenerator : CodeGenerator<DependencyInjectionDes
 
         foreach (var operation in descriptor.Operations)
         {
-            if (!(operation.ResultTypeReference is InterfaceTypeDescriptor typeDescriptor))
+            if (operation.ResultTypeReference is not InterfaceTypeDescriptor typeDescriptor)
             {
                 continue;
             }

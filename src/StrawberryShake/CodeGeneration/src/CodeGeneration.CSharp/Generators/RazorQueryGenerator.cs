@@ -42,8 +42,14 @@ public class RazorQueryGenerator : CSharpSyntaxGenerator<OperationDescriptor>
                 CreateArgumentProperty(argument));
         }
 
+#if NET8_0
         classDeclaration = classDeclaration.AddMembers(
             CreateLifecycleMethodMethod("OnInitialized", descriptor.Arguments));
+#else
+        classDeclaration = classDeclaration.AddMembers(
+            CreateOnInitializedAsyncMethod(descriptor));
+#endif
+
         classDeclaration = classDeclaration.AddMembers(
             CreateLifecycleMethodMethod("OnParametersSet", descriptor.Arguments));
 
@@ -121,6 +127,7 @@ public class RazorQueryGenerator : CSharpSyntaxGenerator<OperationDescriptor>
                                                 ArgumentList(
                                                     SeparatedList(argumentList)))))))));
 
+#if NET8_0
         return MethodDeclaration(
                 PredefinedType(Token(SyntaxKind.VoidKeyword)),
                 Identifier(methodName))
@@ -129,5 +136,181 @@ public class RazorQueryGenerator : CSharpSyntaxGenerator<OperationDescriptor>
                     Token(SyntaxKind.ProtectedKeyword),
                     Token(SyntaxKind.OverrideKeyword)))
             .WithBody(Block(bodyStatements));
+#else
+        var ifStatement =
+            IfStatement(
+                MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    IdentifierName("RendererInfo"),
+                    IdentifierName("IsInteractive")),
+                Block(bodyStatements));
+
+        return MethodDeclaration(
+                PredefinedType(Token(SyntaxKind.VoidKeyword)),
+                Identifier(methodName))
+            .WithModifiers(
+                TokenList(
+                    Token(SyntaxKind.ProtectedKeyword),
+                    Token(SyntaxKind.OverrideKeyword)))
+            .WithBody(Block(ifStatement));
+#endif
+    }
+
+    private MethodDeclarationSyntax CreateOnInitializedAsyncMethod(
+        OperationDescriptor descriptor)
+    {
+        var argumentList = new List<ArgumentSyntax>();
+ 
+        foreach (var argument in descriptor.Arguments)
+        {
+            argumentList.Add(Argument(IdentifierName(GetPropertyName(argument.Name))));
+        }
+ 
+        var watchArgumentList = argumentList.Append(
+            Argument(IdentifierName("Strategy"))
+                .WithNameColon(NameColon(IdentifierName("strategy"))));
+ 
+        var subscribe = ExpressionStatement(
+            InvocationExpression(
+                IdentifierName("Subscribe"))
+                .WithArgumentList(
+                    ArgumentList(
+                        SingletonSeparatedList(
+                            Argument(
+                                InvocationExpression(
+                                    MemberAccessExpression(
+                                        SyntaxKind.SimpleMemberAccessExpression,
+                                        IdentifierName("Operation"),
+                                        IdentifierName("Watch")))
+                                .WithArgumentList(
+                                    ArgumentList(
+                                        SeparatedList(watchArgumentList))))))));
+
+
+        var executeStatement =
+            LocalDeclarationStatement(
+                VariableDeclaration(IdentifierName(Identifier(TriviaList(), SyntaxKind.VarKeyword, "var", "var", TriviaList())))
+                .WithVariables(
+                    SingletonSeparatedList(
+                        VariableDeclarator(Identifier("result"))
+                        .WithInitializer(
+                            EqualsValueClause(
+                                AwaitExpression(
+                                    InvocationExpression(
+                                        MemberAccessExpression(
+                                            SyntaxKind.SimpleMemberAccessExpression,
+                                            IdentifierName("Operation"),
+                                            IdentifierName("ExecuteAsync")))
+                                        .WithArgumentList(
+                                            ArgumentList(
+                                                SeparatedList(argumentList
+                                                    .Append(
+                                                        Argument(IdentifierName("CancellationToken"))
+                                                            .WithNameColon(NameColon(IdentifierName("cancellationToken")))))))))))));
+
+        var subscribeReturn =
+            ExpressionStatement(
+                InvocationExpression(
+                    IdentifierName("Subscribe"))
+                    .WithArgumentList(
+                        ArgumentList(
+                            SingletonSeparatedList(
+                                Argument(
+                                    InvocationExpression(
+                                        MemberAccessExpression(
+                                            SyntaxKind.SimpleMemberAccessExpression,
+                                            IdentifierName("global::System.Reactive.Linq.Observable"),
+                                            IdentifierName("Return")))
+                                    .WithArgumentList(
+                                        ArgumentList(
+                                            SingletonSeparatedList(
+                                                Argument(IdentifierName("result"))))))))));
+ 
+        var ifHydrateThenRestore =
+            IfStatement(
+                IdentifierName("Hydrate"),
+                Block(
+                    SingletonList<StatementSyntax>(
+                        ExpressionStatement(
+                            InvocationExpression(
+                                MemberAccessExpression(
+                                    SyntaxKind.SimpleMemberAccessExpression,
+                                    IdentifierName("HydrateService"),
+                                    IdentifierName("Restore")))
+                            .WithArgumentList(
+                                ArgumentList(
+                                    SeparatedList([
+                                        Argument(
+                                            LiteralExpression(
+                                                SyntaxKind.StringLiteralExpression,
+                                                Literal(descriptor.Name))),
+                                        Argument(
+                                            MemberAccessExpression(
+                                                SyntaxKind.SimpleMemberAccessExpression,
+                                                IdentifierName("ResultBuilder"),
+                                                IdentifierName("BuildData")))])))))));
+        var ifHydrateThenPersist
+            = IfStatement(
+                IdentifierName("Hydrate"),
+                Block(
+                    LocalDeclarationStatement(
+                        VariableDeclaration(
+                            IdentifierName(
+                                Identifier(
+                                    TriviaList(),
+                                    SyntaxKind.VarKeyword,
+                                    "var",
+                                    "var",
+                                    TriviaList())))
+                        .WithVariables(
+                            SingletonSeparatedList(
+                                VariableDeclarator(
+                                    Identifier("request"))
+                                .WithInitializer(
+                                    EqualsValueClause(
+                                        InvocationExpression(
+                                            MemberAccessExpression(
+                                                SyntaxKind.SimpleMemberAccessExpression,
+                                                IdentifierName("Operation"),
+                                                IdentifierName("CreateRequest")))
+                                        .WithArgumentList(ArgumentList(SeparatedList(argumentList)))))))),
+                    ExpressionStatement(
+                        InvocationExpression(
+                            MemberAccessExpression(
+                                SyntaxKind.SimpleMemberAccessExpression,
+                                IdentifierName("HydrateService"),
+                                IdentifierName("Persist")))
+                        .WithArgumentList(
+                            ArgumentList(
+                                SeparatedList([
+                                    Argument(
+                                        IdentifierName("request")),
+                                    Argument(
+                                        IdentifierName("result"))]))))));
+
+        var ifInteractive =
+            IfStatement(
+                MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    IdentifierName("RendererInfo"),
+                    IdentifierName("IsInteractive")),
+                Block(
+                    ifHydrateThenRestore,
+                    subscribe),
+                ElseClause(
+                    Block(
+                        executeStatement,
+                        ifHydrateThenPersist,
+                        subscribeReturn)));
+ 
+        return MethodDeclaration(
+            ParseTypeName(TypeNames.Task),
+            Identifier("OnInitializedAsync"))
+            .WithModifiers(
+                TokenList(
+                    Token(SyntaxKind.ProtectedKeyword),
+                    Token(SyntaxKind.OverrideKeyword),
+                    Token(SyntaxKind.AsyncKeyword)))
+            .WithBody(Block(ifInteractive));
     }
 }
